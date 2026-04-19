@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --background: #070604;
+  --foreground: #f4f4f5;
+  --gold: #d4a574;
+  --gold-bright: #fbbf24;
+  --bulls: #ce1141;
+  --lakers: #fdb927;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body), var(--font-hebrew), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-display: var(--font-display), "Times New Roman", serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), var(--font-hebrew), ui-sans-serif, system-ui,
+    sans-serif;
+}
+
+::selection {
+  background: rgba(251, 191, 36, 0.35);
+  color: #0a0a0a;
+}
+
+/* Holographic trading-card shine — sweeping light band */
+@keyframes holo-sweep {
+  0% {
+    transform: translate3d(-125%, -8%, 0) rotate(24deg) scaleY(1.25);
+  }
+  100% {
+    transform: translate3d(125%, 8%, 0) rotate(24deg) scaleY(1.25);
+  }
+}
+
+/* Slow prism color shift on the foil layer (hover only) */
+@keyframes holo-prism-shift {
+  0%,
+  100% {
+    filter: hue-rotate(-8deg) saturate(1.1);
+  }
+  50% {
+    filter: hue-rotate(18deg) saturate(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-holo-sweep],
+  [data-holo-prism] {
+    animation: none !important;
+  }
+}
