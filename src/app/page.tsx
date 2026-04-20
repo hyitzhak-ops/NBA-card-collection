@@ -7,8 +7,9 @@ import {
   LayoutDashboard,
   Shield,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlbumPage } from "@/components/AlbumPage";
+import { AdminLoginModal } from "@/components/AdminLoginModal";
 import { AdminPanel } from "@/components/AdminPanel";
 import { BackgroundLayer } from "@/components/BackgroundLayer";
 import { Card } from "@/components/Card";
@@ -22,6 +23,7 @@ import { MusicPlayer } from "@/components/MusicPlayer";
 import { SalesBar } from "@/components/SalesBar";
 import { VideoShowcase } from "@/components/VideoShowcase";
 import { useTranslation } from "@/context/TranslationContext";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import { useLocalCollection } from "@/hooks/useLocalCollection";
 import { useVaultVideo } from "@/hooks/useVaultVideo";
 
@@ -39,8 +41,15 @@ export default function Home() {
     ready,
   } = useLocalCollection();
   const video = useVaultVideo();
+  const {
+    isLoading: adminSessionLoading,
+    isAuthenticated: adminAuthenticated,
+    login: adminLogin,
+    logout: adminLogout,
+  } = useAdminSession();
   const [view, setView] = useState<ViewMode>("cards");
   const [adminMode, setAdminMode] = useState(false);
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
   const [albumIndex, setAlbumIndex] = useState(0);
   const [contactOpen, setContactOpen] = useState(false);
   const [lightbox, setLightbox] = useState<{
@@ -54,6 +63,14 @@ export default function Home() {
     if (albumPages.length === 0) return 0;
     return Math.min(albumIndex, albumPages.length - 1);
   }, [albumIndex, albumPages.length]);
+
+  const effectiveAdminMode = adminAuthenticated && adminMode;
+
+  useEffect(() => {
+    if (!adminSessionLoading && !adminAuthenticated) {
+      setAdminMode(false);
+    }
+  }, [adminSessionLoading, adminAuthenticated]);
 
   if (!ready || !video.ready) {
     return (
@@ -145,18 +162,39 @@ export default function Home() {
                   <span className="relative z-10">{t("albumPages")}</span>
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setAdminMode((v) => !v)}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  adminMode
-                    ? "border-amber-400/60 bg-amber-500/15 text-amber-100"
-                    : "border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:border-zinc-500"
-                }`}
-              >
-                <Shield className="h-3.5 w-3.5" aria-hidden />
-                {adminMode ? t("exitAdmin") : t("adminMode")}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={adminSessionLoading}
+                  onClick={() => {
+                    if (adminSessionLoading) return;
+                    if (!adminAuthenticated) {
+                      setAdminLoginOpen(true);
+                      return;
+                    }
+                    setAdminMode((v) => !v);
+                  }}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-wait disabled:opacity-60 ${
+                    effectiveAdminMode
+                      ? "border-amber-400/60 bg-amber-500/15 text-amber-100"
+                      : "border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:border-zinc-500"
+                  }`}
+                >
+                  <Shield className="h-3.5 w-3.5" aria-hidden />
+                  {effectiveAdminMode ? t("exitAdmin") : t("adminMode")}
+                </button>
+                {adminAuthenticated ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void adminLogout().then(() => setAdminMode(false));
+                    }}
+                    className="text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                  >
+                    {t("adminSignOut")}
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </header>
@@ -191,11 +229,11 @@ export default function Home() {
         <VideoShowcase
           url={video.url}
           blobUrl={video.blobUrl}
-          adminMode={adminMode}
+          adminMode={effectiveAdminMode}
         />
 
         <AdminPanel
-          adminMode={adminMode}
+          adminMode={effectiveAdminMode}
           onAddCard={addCard}
           onAddAlbumPage={addAlbumPage}
           videoUrl={video.url}
@@ -230,7 +268,7 @@ export default function Home() {
                           <li key={item.id} className="flex justify-center">
                             <Card
                               item={item}
-                              adminMode={adminMode}
+                              adminMode={effectiveAdminMode}
                               onRemove={removeCard}
                               removeLabel={t("removeCard")}
                               expandLabel={t("tapToExpand")}
@@ -258,7 +296,7 @@ export default function Home() {
               >
                 <AlbumPage
                   pages={albumPages}
-                  adminMode={adminMode}
+                  adminMode={effectiveAdminMode}
                   onRemove={removeAlbumPage}
                   onExpand={(src) => setLightbox({ src })}
                   current={safeAlbumIndex}
@@ -308,6 +346,15 @@ export default function Home() {
         onClose={() => setLightbox(null)}
       />
       <MusicPlayer />
+      <AdminLoginModal
+        open={adminLoginOpen}
+        onClose={() => setAdminLoginOpen(false)}
+        onLogin={async (username, password) => {
+          const ok = await adminLogin(username, password);
+          if (ok) setAdminMode(true);
+          return ok;
+        }}
+      />
     </>
   );
 }
